@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/dashboardFragment"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Home" />
+    <item
+        android:id="@+id/notesFragment"
+        android:icon="@android:drawable/ic_menu_edit"
+        android:title="Notes" />
+    <item
+        android:id="@+id/passwordsFragment"
+        android:icon="@android:drawable/ic_lock_lock"
+        android:title="Passwords" />
+    <item
+        android:id="@+id/expensesFragment"
+        android:icon="@android:drawable/ic_menu_myplaces"
+        android:title="Expenses" />
+    <item
+        android:id="@+id/settingsFragment"
+        android:icon="@android:drawable/ic_menu_preferences"
+        android:title="Settings" />
+</menu>
