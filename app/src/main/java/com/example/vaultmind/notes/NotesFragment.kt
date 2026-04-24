@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.core.widget.addTextChangedListener
+import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
@@ -45,7 +46,7 @@ class NotesFragment : Fragment() {
         view.findViewById<Button>(R.id.personalFilterButton).setOnClickListener { setFilter("Personal") }
         view.findViewById<Button>(R.id.lockedFilterButton).setOnClickListener { setFilter("Locked") }
 
-        view.findViewById<View>(R.id.addNoteFab).setOnClickListener { openEditor() }
+        view.findViewById<View>(R.id.addNoteFab).setOnClickListener { openEditor(null) }
 
         view.findViewById<EditText>(R.id.notesSearchInput).addTextChangedListener { text ->
             currentQuery = text?.toString().orEmpty()
@@ -91,8 +92,20 @@ class NotesFragment : Fragment() {
         }
     }
 
-    private fun openEditor() {
-        findNavController().navigate(R.id.noteEditorFragment)
+    private fun openEditor(note: VaultNote?) {
+        val args = if (note == null) {
+            null
+        } else {
+            bundleOf(
+                ARG_NOTE_TITLE to note.title,
+                ARG_NOTE_BODY to note.preview,
+                ARG_NOTE_CATEGORY to note.category,
+                ARG_NOTE_LOCKED to note.locked,
+                ARG_NOTE_PINNED to note.pinned
+            )
+        }
+
+        findNavController().navigate(R.id.noteEditorFragment, args)
         Toast.makeText(requireContext(), "Opening note editor", Toast.LENGTH_SHORT).show()
     }
 
@@ -107,7 +120,7 @@ class NotesFragment : Fragment() {
     )
 
     private inner class NotesAdapter(
-        private val onClick: () -> Unit
+        private val onClick: (VaultNote) -> Unit
     ) : RecyclerView.Adapter<NotesAdapter.NoteViewHolder>() {
         private val items = mutableListOf<VaultNote>()
 
@@ -143,8 +156,16 @@ class NotesFragment : Fragment() {
                 badgeText.text = item.category.take(1)
                 lockedText.visibility = if (item.locked) View.VISIBLE else View.GONE
                 pinnedText.visibility = if (item.pinned) View.VISIBLE else View.GONE
-                itemView.setOnClickListener { onClick() }
+                itemView.setOnClickListener { onClick(item) }
             }
         }
+    }
+
+    companion object {
+        const val ARG_NOTE_TITLE = "note_title"
+        const val ARG_NOTE_BODY = "note_body"
+        const val ARG_NOTE_CATEGORY = "note_category"
+        const val ARG_NOTE_LOCKED = "note_locked"
+        const val ARG_NOTE_PINNED = "note_pinned"
     }
 }

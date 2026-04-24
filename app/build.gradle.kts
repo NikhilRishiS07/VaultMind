@@ -1,8 +1,27 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+val openRouterApiKey = (project.findProperty("OPENROUTER_API_KEY") as String?)
+    ?: localProperties.getProperty("OPENROUTER_API_KEY", "")
+val escapedOpenRouterApiKey = openRouterApiKey
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+val groqApiKey = (project.findProperty("GROQ_API_KEY") as String?)
+    ?: localProperties.getProperty("GROQ_API_KEY", "")
+val escapedGroqApiKey = groqApiKey
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.example.vaultmind"
@@ -19,7 +38,14 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        buildConfigField("String", "OPENROUTER_API_KEY", "\"$escapedOpenRouterApiKey\"")
+        buildConfigField("String", "GROQ_API_KEY", "\"$escapedGroqApiKey\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

@@ -72,8 +72,40 @@
                     android:id="@+id/aiSwitch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Enable AI note assistance"
+                    android:text="Enable Groq note assistance"
                     android:textColor="@color/vault_text_primary" />
+
+                <TextView
+                    android:id="@+id/groqKeyStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Groq API key loaded from local.properties"
+                    android:textColor="@color/vault_text_secondary" />
+
+                <TextView
+                    android:id="@+id/groqModelText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="llama-3.1-8b-instant"
+                    android:textColor="@color/vault_text_secondary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/testGroqConnectionButton"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Test Groq connection" />
+
+                <TextView
+                    android:id="@+id/groqConnectionStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Connection not tested yet"
+                    android:textColor="@color/vault_text_secondary" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
