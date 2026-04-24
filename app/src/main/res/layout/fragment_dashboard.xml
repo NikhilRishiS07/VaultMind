@@ -17,20 +17,24 @@
         android:paddingBottom="24dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="VaultMind"
+            android:text="V  A  U  L  T  M  I  N  D"
             android:textColor="@color/vault_text_primary"
-            android:textSize="30sp"
-            android:textStyle="bold" />
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:letterSpacing="0.15"
+            android:fontFamily="monospace" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Secure digital sanctuary"
             android:textColor="@color/vault_text_secondary"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:gravity="center" />
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

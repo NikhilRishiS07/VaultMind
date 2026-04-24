@@ -20,6 +20,7 @@ securityCrypto = "1.1.0-alpha06"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
 serialization = "1.7.3"
+blurview = "version-2.0.6"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,6 +48,7 @@ retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+blurview = { group = "com.github.Dimezis", name = "BlurView", version.ref = "blurview" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
