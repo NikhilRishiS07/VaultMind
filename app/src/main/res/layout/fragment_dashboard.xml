@@ -17,18 +17,25 @@
         android:paddingBottom="24dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-condensed"
+            android:gravity="center"
+            android:letterSpacing="0.32"
             android:text="VaultMind"
+            android:textAlignment="center"
+            android:textAllCaps="true"
             android:textColor="@color/vault_text_primary"
             android:textSize="30sp"
             android:textStyle="bold" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
+            android:gravity="center"
             android:text="Secure digital sanctuary"
+            android:textAlignment="center"
             android:textColor="@color/vault_text_secondary"
             android:textSize="14sp" />
 
