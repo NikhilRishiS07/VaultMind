@@ -7,11 +7,16 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.vaultmind.AppGraph
 import com.example.vaultmind.R
+import kotlinx.coroutines.launch
 
 class DashboardFragment : Fragment() {
+    private val repository by lazy { AppGraph.repository(requireContext()) }
+
     private val activities = listOf(
         RecentActivity("D", "Modified Note • #8412", "Encrypted metadata sync", "OK"),
         RecentActivity("K", "Access Key Generated", "Security module refresh", "OK"),
@@ -26,10 +31,7 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        view.findViewById<TextView>(R.id.notesCountText).text = "24"
-        view.findViewById<TextView>(R.id.passwordsCountText).text = "12"
-        view.findViewById<TextView>(R.id.spendValueText).text = "$1,240"
+        loadSummary(view)
 
         view.findViewById<RecyclerView>(R.id.recentActivityRecycler).apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -38,6 +40,20 @@ class DashboardFragment : Fragment() {
 
         view.findViewById<View>(R.id.unlockVaultButton).setOnClickListener {
             Toast.makeText(requireContext(), "Vault unlocked for demo mode", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        view?.let { loadSummary(it) }
+    }
+
+    private fun loadSummary(view: View) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val summary = repository.dashboardSummary()
+            view.findViewById<TextView>(R.id.notesCountText).text = summary.notesCount.toString()
+            view.findViewById<TextView>(R.id.passwordsCountText).text = summary.passwordsCount.toString()
+            view.findViewById<TextView>(R.id.spendValueText).text = summary.spendText
         }
     }
 

@@ -7,23 +7,23 @@ import android.view.ViewGroup
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.widget.LinearLayout
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.core.widget.addTextChangedListener
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.vaultmind.AppGraph
 import com.example.vaultmind.R
+import kotlinx.coroutines.launch
 
 class PasswordsFragment : Fragment() {
-    private val allEntries = listOf(
-        PasswordEntry("Google Workspace", "alex.design@gmail.com", "Aex$2481#Vault", "Strong"),
-        PasswordEntry("Netflix Premium", "home_vault_2024", "Ntfx@5520!", "Good"),
-        PasswordEntry("Dropbox Pro", "alexander_vault", "drop-2026", "Weak"),
-        PasswordEntry("Chase Private", "wm_user_091", "Chase#9090!", "Strong")
-    )
-
+    private val repository by lazy { AppGraph.repository(requireContext()) }
+    private var allEntries = emptyList<PasswordEntry>()
     private val adapter by lazy { PasswordsAdapter() }
     private var currentQuery = ""
 
@@ -46,11 +46,14 @@ class PasswordsFragment : Fragment() {
             applyFilter()
         }
 
-        view.findViewById<View>(R.id.addPasswordFab).setOnClickListener {
-            Toast.makeText(requireContext(), "Add password form comes next", Toast.LENGTH_SHORT).show()
-        }
+        view.findViewById<View>(R.id.addPasswordFab).setOnClickListener { showAddPasswordDialog() }
 
-        applyFilter()
+        loadPasswords()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadPasswords()
     }
 
     private fun applyFilter() {
@@ -58,6 +61,73 @@ class PasswordsFragment : Fragment() {
             currentQuery.isBlank() || it.service.contains(currentQuery, ignoreCase = true) || it.username.contains(currentQuery, ignoreCase = true)
         }
         adapter.submitList(filtered)
+    }
+
+    private fun loadPasswords() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            allEntries = repository.getPasswords().map {
+                PasswordEntry(
+                    service = it.service,
+                    username = it.username,
+                    password = it.password,
+                    strength = it.strength
+                )
+            }
+            applyFilter()
+        }
+    }
+
+    private fun showAddPasswordDialog() {
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 0)
+        }
+
+        val serviceInput = EditText(requireContext()).apply { hint = "Service" }
+        val usernameInput = EditText(requireContext()).apply { hint = "Username" }
+        val passwordInput = EditText(requireContext()).apply { hint = "Password" }
+
+        container.addView(serviceInput)
+        container.addView(usernameInput)
+        container.addView(passwordInput)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Add Password")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val service = serviceInput.text?.toString().orEmpty().trim()
+                val username = usernameInput.text?.toString().orEmpty().trim()
+                val password = passwordInput.text?.toString().orEmpty().trim()
+
+                if (service.isBlank() || username.isBlank() || password.isBlank()) {
+                    Toast.makeText(requireContext(), "All fields are required", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    repository.savePassword(service, username, password, estimateStrength(password))
+                    loadPasswords()
+                    Toast.makeText(requireContext(), "Encrypted password saved", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun estimateStrength(password: String): String {
+        val score = listOf(
+            password.length >= 12,
+            password.any { it.isUpperCase() },
+            password.any { it.isLowerCase() },
+            password.any { it.isDigit() },
+            password.any { !it.isLetterOrDigit() }
+        ).count { it }
+
+        return when {
+            score >= 5 -> "Strong"
+            score >= 3 -> "Good"
+            else -> "Weak"
+        }
     }
 
     private data class PasswordEntry(

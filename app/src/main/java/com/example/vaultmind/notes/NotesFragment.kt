@@ -10,20 +10,17 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.core.widget.addTextChangedListener
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.vaultmind.AppGraph
 import com.example.vaultmind.R
+import kotlinx.coroutines.launch
 
 class NotesFragment : Fragment() {
-    private val allNotes = listOf(
-        VaultNote("Q3 Project Quantum", "The preliminary assessment reveals clean encryption posture and structured recovery paths.", "Work", locked = false, pinned = true, "Last edited 2h ago", "Created May 12"),
-        VaultNote("Grocery List Sanctuary", "Milk, oats, spinach, coffee beans, and a new filter replacement.", "Personal", locked = false, pinned = false, "Last edited 5h ago", "Created Apr 28"),
-        VaultNote("Vault Credentials", "Production keys and backup recovery steps. Keep locked.", "Locked", locked = true, pinned = false, "Last edited 1d ago", "Created Jan 15"),
-        VaultNote("Investment Thesis", "Thesis summary, risk controls, and review checklist for the next sprint.", "Work", locked = false, pinned = true, "Last edited 3h ago", "Created May 10"),
-        VaultNote("Journal Thoughts", "A short reflection on momentum, clarity, and implementation priorities.", "Personal", locked = false, pinned = false, "Last edited 6h ago", "Created May 05"),
-        VaultNote("Release Checklist", "QA, signing, export validation, and device smoke tests.", "Work", locked = false, pinned = false, "Last edited 45m ago", "Created Today")
-    )
+    private val repository by lazy { AppGraph.repository(requireContext()) }
+    private var allNotes = emptyList<VaultNote>()
 
     private var activeFilter = "All"
     private var currentQuery = ""
@@ -55,7 +52,12 @@ class NotesFragment : Fragment() {
             applyFilters()
         }
 
-        applyFilters()
+        loadNotes()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadNotes()
     }
 
     private fun setFilter(filter: String) {
@@ -70,6 +72,23 @@ class NotesFragment : Fragment() {
             matchesFilter && matchesQuery
         }
         adapter.submitList(filtered)
+    }
+
+    private fun loadNotes() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            allNotes = repository.getNotes().map {
+                VaultNote(
+                    title = it.title,
+                    preview = it.preview,
+                    category = it.category,
+                    locked = it.locked,
+                    pinned = it.pinned,
+                    lastEdited = it.lastEdited,
+                    createdAt = it.createdAt
+                )
+            }
+            applyFilters()
+        }
     }
 
     private fun openEditor() {

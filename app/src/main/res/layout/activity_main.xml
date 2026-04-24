@@ -32,7 +32,7 @@
             android:paddingTop="10dp"
             android:paddingBottom="12dp"
             app:itemIconTint="@color/bottom_nav_state"
-            app:itemTextColor="@color/bottom_nav_state"
+            app:itemTextColor="@color/bottom_nav_label_state"
             app:labelVisibilityMode="labeled"
             app:menu="@menu/bottom_nav_menu" />
     </eightbitlab.com.blurview.BlurView>

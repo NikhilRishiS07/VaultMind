@@ -4,20 +4,23 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.vaultmind.AppGraph
 import com.example.vaultmind.R
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 class ExpensesFragment : Fragment() {
-    private val transactions = listOf(
-        Transaction("Apple Store Online", "Yesterday, 4:20 PM • Electronics", "-$1,299.00", "Secured"),
-        Transaction("The Daily Grind", "Today, 9:15 AM • Food & Drink", "-$18.40", "Secured"),
-        Transaction("Nimbus Subscription", "Today, 8:10 AM • Software", "-$39.99", "Secured")
-    )
-
+    private val repository by lazy { AppGraph.repository(requireContext()) }
+    private var transactions = emptyList<Transaction>()
     private val adapter by lazy { TransactionAdapter() }
 
     override fun onCreateView(
@@ -29,22 +32,100 @@ class ExpensesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val totalSpent = 3200 - 2450
         val budgetProgress = view.findViewById<android.widget.ProgressBar>(R.id.budgetProgressBar)
-        budgetProgress.progress = 75
-        view.findViewById<TextView>(R.id.budgetRemainingValue).text = "$2,450 remaining"
-        view.findViewById<TextView>(R.id.budgetSpentValue).text = "$totalSpent spent of $3,200"
+        budgetProgress.progress = 0
+        view.findViewById<TextView>(R.id.budgetRemainingValue).text = "$3,200 remaining"
+        view.findViewById<TextView>(R.id.budgetSpentValue).text = "$0 spent of $3,200"
 
         view.findViewById<RecyclerView>(R.id.transactionsRecycler).apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@ExpensesFragment.adapter
         }
 
-        adapter.submitList(transactions)
+        loadTransactions()
 
         view.findViewById<View>(R.id.addExpenseFab).setOnClickListener {
-            Toast.makeText(requireContext(), "Add expense flow comes next", Toast.LENGTH_SHORT).show()
+            showAddExpenseDialog()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadTransactions()
+    }
+
+    private fun loadTransactions() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            transactions = repository.getExpenses().map {
+                Transaction(
+                    title = it.title,
+                    subtitle = it.subtitle,
+                    amount = it.amountText,
+                    tag = it.tag
+                )
+            }
+            adapter.submitList(transactions)
+            updateBudgetUi()
+        }
+    }
+
+    private fun updateBudgetUi() {
+        val budgetTotal = 3200.0
+        val spent = transactions.sumOf { parseAmount(it.amount) }
+        val spentPositive = kotlin.math.abs(spent)
+        val remaining = (budgetTotal - spentPositive).coerceAtLeast(0.0)
+        val progress = ((spentPositive / budgetTotal) * 100).toInt().coerceIn(0, 100)
+
+        view?.findViewById<android.widget.ProgressBar>(R.id.budgetProgressBar)?.progress = progress
+        view?.findViewById<TextView>(R.id.budgetRemainingValue)?.text =
+            String.format(Locale.US, "$%,.0f remaining", remaining)
+        view?.findViewById<TextView>(R.id.budgetSpentValue)?.text =
+            String.format(Locale.US, "$%,.0f spent of $3,200", spentPositive)
+    }
+
+    private fun showAddExpenseDialog() {
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 0)
+        }
+
+        val titleInput = EditText(requireContext()).apply { hint = "Title" }
+        val amountInput = EditText(requireContext()).apply {
+            hint = "Amount (e.g. 45.90)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+
+        container.addView(titleInput)
+        container.addView(amountInput)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Add Expense")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val title = titleInput.text?.toString().orEmpty().trim()
+                val amountValue = amountInput.text?.toString().orEmpty().toDoubleOrNull()
+
+                if (title.isBlank() || amountValue == null) {
+                    Toast.makeText(requireContext(), "Valid title and amount required", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                val amountText = String.format(Locale.US, "-$%,.2f", amountValue)
+                val subtitle = "Today • Manual Entry"
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    repository.saveExpense(title, subtitle, amountText, -amountValue, "Secured")
+                    loadTransactions()
+                    Toast.makeText(requireContext(), "Encrypted expense saved", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun parseAmount(amountText: String): Double {
+        val cleaned = amountText.replace("$", "").replace(",", "")
+        return cleaned.toDoubleOrNull() ?: 0.0
     }
 
     private data class Transaction(
