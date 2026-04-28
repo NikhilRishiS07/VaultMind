@@ -24,7 +24,14 @@ class AppLockManager(private val context: Context) {
     }
 
     fun ensureTempUser() {
-        if (prefs.contains(KEY_USERNAME)) return
+        if (prefs.contains(KEY_USERNAME)) {
+            // Keep demo credentials in sync across app updates.
+            val existingUsername = prefs.getString(KEY_USERNAME, null)
+            if (existingUsername == TEMP_USERNAME) {
+                resetTempPasswordHash()
+            }
+            return
+        }
 
         val username = TEMP_USERNAME
         val password = TEMP_PASSWORD
@@ -66,6 +73,15 @@ class AppLockManager(private val context: Context) {
 
     fun tempUsername(): String = prefs.getString(KEY_USERNAME, TEMP_USERNAME) ?: TEMP_USERNAME
 
+    private fun resetTempPasswordHash() {
+        val salt = ByteArray(SALT_SIZE).also { SecureRandom().nextBytes(it) }
+        val hash = hashPassword(TEMP_PASSWORD, salt)
+        prefs.edit()
+            .putString(KEY_SALT, Base64.encodeToString(salt, Base64.NO_WRAP))
+            .putString(KEY_PASSWORD_HASH, Base64.encodeToString(hash, Base64.NO_WRAP))
+            .apply()
+    }
+
     private fun hashPassword(password: String, salt: ByteArray): ByteArray {
         val keySpec = PBEKeySpec(password.toCharArray(), salt, HASH_ITERATIONS, KEY_LENGTH_BITS)
         return SecretKeyFactory.getInstance(HASH_ALGORITHM).generateSecret(keySpec).encoded
@@ -73,7 +89,7 @@ class AppLockManager(private val context: Context) {
 
     companion object {
         const val TEMP_USERNAME = "vaultpilot"
-        const val TEMP_PASSWORD = "Vault@2026"
+        const val TEMP_PASSWORD = "123"
 
         private const val PREF_FILE = "vaultmind_secure_auth"
         private const val KEY_USERNAME = "username"

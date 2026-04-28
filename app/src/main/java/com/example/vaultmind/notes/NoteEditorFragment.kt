@@ -27,6 +27,9 @@ class NoteEditorFragment : Fragment() {
 
     private var isLocked = false
     private var isPinned = false
+    private var isPublic = false
+    private var aiSuggestionSourceBody: String? = null
+    private var isApplyingSuggestion = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -48,10 +51,16 @@ class NoteEditorFragment : Fragment() {
 
         groqSuggestionAdapter = GroqSuggestionAdapter { suggestion ->
             val currentText = bodyInput.text?.toString().orEmpty()
+            if (aiSuggestionSourceBody == null) {
+                aiSuggestionSourceBody = currentText
+            }
             val needsLeadingSpace = currentText.isNotBlank() && !currentText.last().isWhitespace()
             val prefix = if (needsLeadingSpace) " " else ""
             val suffix = if (suggestion.endsWith(" ")) "" else " "
+            isApplyingSuggestion = true
             bodyInput.append(prefix + suggestion + suffix)
+            bodyInput.setSelection(bodyInput.text?.length ?: 0)
+            isApplyingSuggestion = false
         }
 
         suggestionsRecycler.layoutManager = LinearLayoutManager(requireContext())
@@ -80,6 +89,8 @@ class NoteEditorFragment : Fragment() {
         val initialCategory = arguments?.getString(NotesFragment.ARG_NOTE_CATEGORY).orEmpty()
         val initialLocked = arguments?.getBoolean(NotesFragment.ARG_NOTE_LOCKED, false) ?: false
         val initialPinned = arguments?.getBoolean(NotesFragment.ARG_NOTE_PINNED, false) ?: false
+        val initialPublic = arguments?.getBoolean(NotesFragment.ARG_NOTE_PUBLIC, false) ?: false
+        val initialNoteId = arguments?.getLong(NotesFragment.ARG_NOTE_ID, -1L) ?: -1L
 
         if (initialTitle.isNotBlank()) {
             titleInput.setText(initialTitle)
@@ -90,20 +101,41 @@ class NoteEditorFragment : Fragment() {
 
         isLocked = initialLocked || initialCategory.equals("Locked", ignoreCase = true)
         isPinned = initialPinned
+        isPublic = initialPublic
         lockButton.text = if (isLocked) "Locked" else "Lock"
         pinButton.text = if (isPinned) "Pinned" else "Pin"
 
+        val publicSwitch = view.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.notePublicSwitch)
+        publicSwitch.isChecked = isPublic
+        publicSwitch.setOnCheckedChangeListener { _, checked ->
+            isPublic = checked
+        }
+
         titleInput.addTextChangedListener { _ ->
+            if (!isApplyingSuggestion) {
+                aiSuggestionSourceBody = null
+            }
             groqSuggestionsViewModel.reset()
         }
 
         bodyInput.addTextChangedListener { _ ->
+            if (!isApplyingSuggestion) {
+                aiSuggestionSourceBody = null
+            }
             groqSuggestionsViewModel.reset()
         }
 
         generateSuggestionsButton.setOnClickListener {
             val noteTitle = titleInput.text?.toString().orEmpty().trim()
-            val noteBody = bodyInput.text?.toString().orEmpty().trim()
+            val currentBody = bodyInput.text?.toString().orEmpty().trim()
+            val noteBody = aiSuggestionSourceBody?.takeIf { it.isNotBlank() }?.trim() ?: currentBody
+            val cursorPosition = resolveCursorPosition(bodyInput)
+            val cursorBeforeText = noteBody.take(cursorPosition).takeLast(240)
+            val cursorAfterText = noteBody.drop(cursorPosition).take(140)
+
+            if (aiSuggestionSourceBody == null && currentBody.isNotBlank()) {
+                aiSuggestionSourceBody = currentBody
+            }
 
             if (noteTitle.isBlank() && noteBody.isBlank()) {
                 groqSuggestionsViewModel.reset()
@@ -114,7 +146,9 @@ class NoteEditorFragment : Fragment() {
 
             groqSuggestionsViewModel.generateSuggestions(
                 noteTitle = noteTitle,
-                noteBody = noteBody
+                noteBody = noteBody,
+                cursorBeforeText = cursorBeforeText,
+                cursorAfterText = cursorAfterText
             )
         }
 
@@ -128,13 +162,38 @@ class NoteEditorFragment : Fragment() {
             }
 
             viewLifecycleOwner.lifecycleScope.launch {
-                repository.saveNote(
+                val id = if (initialNoteId > 0L) {
+                    repository.updateNote(
+                        id = initialNoteId,
+                        title = title,
+                        body = body,
+                        category = if (isLocked) "Locked" else "Personal",
+                        locked = isLocked,
+                        pinned = isPinned,
+                        isPublic = isPublic
+                    )
+                    initialNoteId
+                } else {
+                    repository.saveNote(
+                        title = title,
+                        body = body,
+                        category = if (isLocked) "Locked" else "Personal",
+                        locked = isLocked,
+                        pinned = isPinned,
+                        isPublic = isPublic
+                    )
+                }
+
+                // Sync any widget instances currently pointing at this note.
+                val widgetStore = com.example.vaultmind.data.WidgetStore(requireContext())
+                widgetStore.syncNoteChange(
+                    noteId = id,
                     title = title,
-                    body = body,
-                    category = if (isLocked) "Locked" else "Personal",
-                    locked = isLocked,
-                    pinned = isPinned
+                    snippet = body.take(160),
+                    isPublic = isPublic
                 )
+                com.example.vaultmind.widget.StickyNoteWidgetProvider.refreshAll(requireContext())
+
                 statusText.text = "Draft saved just now"
                 Toast.makeText(requireContext(), "Encrypted note saved", Toast.LENGTH_SHORT).show()
             }
@@ -159,6 +218,7 @@ class NoteEditorFragment : Fragment() {
         view.findViewById<MaterialButton>(R.id.deleteNoteButton).setOnClickListener {
             titleInput.setText("")
             bodyInput.setText("")
+            aiSuggestionSourceBody = null
             groqSuggestionsViewModel.reset()
             groqSuggestionAdapter.submitList(emptyList())
             Toast.makeText(requireContext(), "Note cleared", Toast.LENGTH_SHORT).show()
@@ -196,6 +256,18 @@ class NoteEditorFragment : Fragment() {
                 groqSuggestionAdapter.submitList(emptyList())
                 recyclerView.visibility = View.GONE
             }
+        }
+    }
+
+    private fun resolveCursorPosition(bodyInput: EditText): Int {
+        val selectionStart = bodyInput.selectionStart
+        val selectionEnd = bodyInput.selectionEnd
+        val textLength = bodyInput.text?.length ?: 0
+
+        return when {
+            selectionStart >= 0 && selectionEnd >= 0 -> minOf(selectionStart, selectionEnd).coerceIn(0, textLength)
+            selectionStart >= 0 -> selectionStart.coerceIn(0, textLength)
+            else -> textLength
         }
     }
 }

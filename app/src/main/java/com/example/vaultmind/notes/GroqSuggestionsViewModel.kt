@@ -13,10 +13,18 @@ class GroqSuggestionsViewModel(
     private val _uiState = MutableStateFlow<GroqSuggestionsUiState>(GroqSuggestionsUiState.Idle)
     val uiState: StateFlow<GroqSuggestionsUiState> = _uiState.asStateFlow()
     private var requestVersion = 0
+    private val recentSuggestions = ArrayDeque<String>()
 
-    fun generateSuggestions(noteTitle: String, noteBody: String) {
+    fun generateSuggestions(
+        noteTitle: String,
+        noteBody: String,
+        cursorBeforeText: String,
+        cursorAfterText: String
+    ) {
         val trimmedTitle = noteTitle.trim()
         val trimmedBody = noteBody.trim()
+        val trimmedBefore = cursorBeforeText.trim()
+        val trimmedAfter = cursorAfterText.trim()
 
         if (trimmedTitle.isBlank() && trimmedBody.isBlank()) {
             _uiState.value = GroqSuggestionsUiState.Error("Type a title or note first")
@@ -30,7 +38,10 @@ class GroqSuggestionsViewModel(
             runCatching {
                 repository.generateSuggestions(
                     noteTitle = trimmedTitle,
-                    noteBody = trimmedBody
+                    noteBody = trimmedBody,
+                    cursorBeforeText = trimmedBefore,
+                    cursorAfterText = trimmedAfter,
+                    recentSuggestions = recentSuggestions.toList()
                 )
             }
                 .onSuccess { suggestions ->
@@ -38,6 +49,7 @@ class GroqSuggestionsViewModel(
                     if (suggestions.isEmpty()) {
                         _uiState.value = GroqSuggestionsUiState.Error("Groq returned no suggestions")
                     } else {
+                        rememberSuggestions(suggestions)
                         _uiState.value = GroqSuggestionsUiState.Success(suggestions)
                     }
                 }
@@ -50,6 +62,19 @@ class GroqSuggestionsViewModel(
 
     fun reset() {
         requestVersion++
+        recentSuggestions.clear()
         _uiState.value = GroqSuggestionsUiState.Idle
+    }
+
+    private fun rememberSuggestions(suggestions: List<String>) {
+        for (suggestion in suggestions) {
+            val normalized = suggestion.trim().lowercase()
+            if (normalized.isBlank()) continue
+            recentSuggestions.removeAll { it.equals(normalized, ignoreCase = true) }
+            recentSuggestions.addLast(normalized)
+            while (recentSuggestions.size > 12) {
+                recentSuggestions.removeFirst()
+            }
+        }
     }
 }

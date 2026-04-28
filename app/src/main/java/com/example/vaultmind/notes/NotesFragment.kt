@@ -79,9 +79,11 @@ class NotesFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             allNotes = repository.getNotes().map {
                 VaultNote(
+                    id = it.id,
                     title = it.title,
                     preview = it.preview,
                     category = it.category,
+                    isPublic = it.isPublic,
                     locked = it.locked,
                     pinned = it.pinned,
                     lastEdited = it.lastEdited,
@@ -96,12 +98,14 @@ class NotesFragment : Fragment() {
         val args = if (note == null) {
             null
         } else {
-            bundleOf(
+                bundleOf(
+                ARG_NOTE_ID to note.id,
                 ARG_NOTE_TITLE to note.title,
                 ARG_NOTE_BODY to note.preview,
                 ARG_NOTE_CATEGORY to note.category,
                 ARG_NOTE_LOCKED to note.locked,
-                ARG_NOTE_PINNED to note.pinned
+                ARG_NOTE_PINNED to note.pinned,
+                ARG_NOTE_PUBLIC to note.isPublic
             )
         }
 
@@ -110,9 +114,11 @@ class NotesFragment : Fragment() {
     }
 
     private data class VaultNote(
+        val id: Long,
         val title: String,
         val preview: String,
         val category: String,
+        val isPublic: Boolean,
         val locked: Boolean,
         val pinned: Boolean,
         val lastEdited: String,
@@ -162,10 +168,12 @@ class NotesFragment : Fragment() {
     }
 
     companion object {
+        const val ARG_NOTE_ID = "note_id"
         const val ARG_NOTE_TITLE = "note_title"
         const val ARG_NOTE_BODY = "note_body"
         const val ARG_NOTE_CATEGORY = "note_category"
         const val ARG_NOTE_LOCKED = "note_locked"
         const val ARG_NOTE_PINNED = "note_pinned"
+        const val ARG_NOTE_PUBLIC = "note_public"
     }
 }

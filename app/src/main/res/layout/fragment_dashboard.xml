@@ -55,29 +55,13 @@
                 android:padding="20dp">
 
                 <TextView
+                    android:id="@+id/greetingText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Good morning, Alex"
+                    android:text="Greetings vaultpilot, you are currently logged in."
                     android:textColor="@color/vault_text_primary"
-                    android:textSize="22sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Vault locked, biometric ready, and your data is encrypted at rest."
-                    android:textColor="@color/vault_text_secondary" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/unlockVaultButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Unlock Vault"
-                    app:cornerRadius="999dp"
-                    app:backgroundTint="@color/vault_primary"
-                    android:textColor="@color/vault_background" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -163,7 +147,7 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="140dp"
+                android:layout_height="280dp"
                 android:layout_columnSpan="2"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="@color/vault_surface"
@@ -171,41 +155,73 @@
                 app:strokeColor="#1FFFFFFF"
                 app:strokeWidth="1dp">
 
-                <LinearLayout
+                <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:padding="18dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Monthly Spend"
-                        android:textColor="@color/vault_text_secondary"
-                        android:textAllCaps="true"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/spendValueText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="$1,240"
-                        android:textColor="@color/vault_text_primary"
-                        android:textSize="30sp"
-                        android:textStyle="bold" />
+                    android:gravity="center">
 
                     <ProgressBar
+                        android:id="@+id/budgetCircleProgress"
                         style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="6dp"
-                        android:layout_marginTop="16dp"
+                        android:layout_width="200dp"
+                        android:layout_height="200dp"
+                        android:layout_gravity="center"
                         android:indeterminate="false"
                         android:max="100"
                         android:progress="58"
                         android:progressTint="@color/vault_primary"
                         android:progressBackgroundTint="#1AFFFFFF" />
-                </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="200dp"
+                        android:layout_height="200dp"
+                        android:layout_gravity="center"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="BUDGET SPENT"
+                            android:textColor="@color/vault_text_secondary"
+                            android:textAllCaps="true"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.1"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:id="@+id/budgetSpentLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="₹2,450"
+                            android:textColor="@color/vault_text_primary"
+                            android:textSize="28sp"
+                            android:textStyle="bold"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:id="@+id/budgetLimitLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="₹5,000 limit"
+                            android:textColor="@color/vault_primary"
+                            android:textSize="14sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:id="@+id/budgetRemainingLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="₹2,550 remaining"
+                            android:textColor="@color/vault_text_secondary"
+                            android:textSize="12sp"
+                            android:gravity="center" />
+                    </LinearLayout>
+                </FrameLayout>
             </com.google.android.material.card.MaterialCardView>
         </GridLayout>
 
@@ -227,7 +243,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Recent Activity"
+                    android:text="History"
                     android:textColor="@color/vault_text_primary"
                     android:textSize="18sp"
                     android:textStyle="bold" />

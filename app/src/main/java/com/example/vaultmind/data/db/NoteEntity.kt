@@ -6,9 +6,11 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "notes")
 data class NoteEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val titleEnc: String,
+    val title: String,
     val bodyEnc: String,
+    val bodyPlain: String = "",
     val categoryEnc: String,
+    val isPublic: Boolean = false,
     val locked: Boolean,
     val pinned: Boolean,
     val updatedAt: Long,

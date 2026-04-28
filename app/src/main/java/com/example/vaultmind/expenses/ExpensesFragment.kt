@@ -1,5 +1,6 @@
 package com.example.vaultmind.expenses
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -32,17 +33,13 @@ class ExpensesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val budgetProgress = view.findViewById<android.widget.ProgressBar>(R.id.budgetProgressBar)
-        budgetProgress.progress = 0
-        view.findViewById<TextView>(R.id.budgetRemainingValue).text = "$3,200 remaining"
-        view.findViewById<TextView>(R.id.budgetSpentValue).text = "$0 spent of $3,200"
-
         view.findViewById<RecyclerView>(R.id.transactionsRecycler).apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@ExpensesFragment.adapter
         }
 
         loadTransactions()
+        setupBudgetSection(view)
 
         view.findViewById<View>(R.id.addExpenseFab).setOnClickListener {
             showAddExpenseDialog()
@@ -54,10 +51,39 @@ class ExpensesFragment : Fragment() {
         loadTransactions()
     }
 
+    private fun setupBudgetSection(view: View) {
+        val editBudgetBtn = view.findViewById<View>(R.id.editBudgetBtn)
+        val budgetText = view.findViewById<TextView>(R.id.budgetValueText)
+        
+        val prefs = requireContext().getSharedPreferences("dashboard_prefs", Context.MODE_PRIVATE)
+        val currentBudget = prefs.getLong("monthly_budget", 5000)
+        budgetText.text = String.format(Locale.US, "₹%,d", currentBudget)
+        
+        editBudgetBtn?.setOnClickListener {
+            val budgetInput = EditText(requireContext()).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                setText(currentBudget.toString())
+            }
+            
+            AlertDialog.Builder(requireContext())
+                .setTitle("Set Monthly Budget")
+                .setView(budgetInput)
+                .setPositiveButton("Save") { _, _ ->
+                    val newBudget = budgetInput.text.toString().toLongOrNull() ?: currentBudget
+                    prefs.edit().putLong("monthly_budget", newBudget).apply()
+                    budgetText.text = String.format(Locale.US, "₹%,d", newBudget)
+                    updateBudgetUi()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
     private fun loadTransactions() {
         viewLifecycleOwner.lifecycleScope.launch {
             transactions = repository.getExpenses().map {
                 Transaction(
+                    id = it.id,
                     title = it.title,
                     subtitle = it.subtitle,
                     amount = it.amountText,
@@ -70,7 +96,8 @@ class ExpensesFragment : Fragment() {
     }
 
     private fun updateBudgetUi() {
-        val budgetTotal = 3200.0
+        val prefs = requireContext().getSharedPreferences("dashboard_prefs", Context.MODE_PRIVATE)
+        val budgetTotal = prefs.getLong("monthly_budget", 5000).toDouble()
         val spent = transactions.sumOf { parseAmount(it.amount) }
         val spentPositive = kotlin.math.abs(spent)
         val remaining = (budgetTotal - spentPositive).coerceAtLeast(0.0)
@@ -78,9 +105,9 @@ class ExpensesFragment : Fragment() {
 
         view?.findViewById<android.widget.ProgressBar>(R.id.budgetProgressBar)?.progress = progress
         view?.findViewById<TextView>(R.id.budgetRemainingValue)?.text =
-            String.format(Locale.US, "$%,.0f remaining", remaining)
+            String.format(Locale.US, "₹%,.0f remaining", remaining)
         view?.findViewById<TextView>(R.id.budgetSpentValue)?.text =
-            String.format(Locale.US, "$%,.0f spent of $3,200", spentPositive)
+            String.format(Locale.US, "₹%,.0f spent of ₹%,d", spentPositive, budgetTotal.toLong())
     }
 
     private fun showAddExpenseDialog() {
@@ -110,13 +137,13 @@ class ExpensesFragment : Fragment() {
                     return@setPositiveButton
                 }
 
-                val amountText = String.format(Locale.US, "-$%,.2f", amountValue)
+                val amountText = String.format(Locale.US, "-₹%,.2f", amountValue)
                 val subtitle = "Today • Manual Entry"
 
                 viewLifecycleOwner.lifecycleScope.launch {
                     repository.saveExpense(title, subtitle, amountText, -amountValue, "Secured")
                     loadTransactions()
-                    Toast.makeText(requireContext(), "Encrypted expense saved", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Expense saved", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -124,11 +151,12 @@ class ExpensesFragment : Fragment() {
     }
 
     private fun parseAmount(amountText: String): Double {
-        val cleaned = amountText.replace("$", "").replace(",", "")
+        val cleaned = amountText.replace("₹", "").replace(",", "").replace("-", "")
         return cleaned.toDoubleOrNull() ?: 0.0
     }
 
     private data class Transaction(
+        val id: Long = 0,
         val title: String,
         val subtitle: String,
         val amount: String,
@@ -150,7 +178,7 @@ class ExpensesFragment : Fragment() {
         }
 
         override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
-            holder.bind(items[position])
+            holder.bind(items[position], position)
         }
 
         override fun getItemCount(): Int = items.size
@@ -161,12 +189,93 @@ class ExpensesFragment : Fragment() {
             private val amountText: TextView = itemView.findViewById(R.id.transactionAmountText)
             private val tagText: TextView = itemView.findViewById(R.id.transactionTagText)
 
-            fun bind(item: Transaction) {
+            fun bind(item: Transaction, position: Int) {
                 titleText.text = item.title
                 subtitleText.text = item.subtitle
                 amountText.text = item.amount
                 tagText.text = item.tag
+                
+                itemView.setOnLongClickListener {
+                    showTransactionOptionsDialog(item, position)
+                    true
+                }
             }
         }
+    }
+
+    private fun showTransactionOptionsDialog(transaction: Transaction, position: Int) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(transaction.title)
+            .setItems(arrayOf("Edit", "Delete")) { _, which ->
+                when (which) {
+                    0 -> showEditTransactionDialog(transaction)
+                    1 -> deleteTransaction(transaction.id)
+                }
+            }
+            .show()
+    }
+
+    private fun showEditTransactionDialog(transaction: Transaction) {
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 0)
+        }
+
+        val titleInput = EditText(requireContext()).apply {
+            hint = "Title"
+            setText(transaction.title)
+        }
+        val amountInput = EditText(requireContext()).apply {
+            hint = "Amount"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(parseAmount(transaction.amount).toString())
+        }
+
+        container.addView(titleInput)
+        container.addView(amountInput)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Edit Expense")
+            .setView(container)
+            .setPositiveButton("Update") { _, _ ->
+                val newTitle = titleInput.text?.toString().orEmpty().trim()
+                val newAmount = amountInput.text?.toString().orEmpty().toDoubleOrNull()
+
+                if (newTitle.isBlank() || newAmount == null) {
+                    Toast.makeText(requireContext(), "Valid title and amount required", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val amountText = String.format(Locale.US, "-₹%,.2f", newAmount)
+                    repository.updateExpense(
+                        transaction.id,
+                        newTitle,
+                        transaction.subtitle,
+                        amountText,
+                        -newAmount,
+                        transaction.tag
+                    )
+                    loadTransactions()
+                    Toast.makeText(requireContext(), "Expense updated", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteTransaction(transactionId: Long) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Delete Expense?")
+            .setMessage("This action cannot be undone.")
+            .setPositiveButton("Delete") { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    repository.deleteExpense(transactionId)
+                    loadTransactions()
+                    Toast.makeText(requireContext(), "Expense deleted", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

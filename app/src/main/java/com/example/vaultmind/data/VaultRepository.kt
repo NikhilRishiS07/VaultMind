@@ -46,21 +46,16 @@ class VaultRepository(
             savePassword("Google Workspace", "alex.design@gmail.com", "Aex$2481#Vault", "Strong")
             savePassword("Netflix Premium", "home_vault_2024", "Ntfx@5520!", "Good")
         }
-
-        if (expenseDao.count() == 0) {
-            saveExpense("Apple Store Online", "Yesterday, 4:20 PM • Electronics", "-$1,299.00", -1299.00, "Secured")
-            saveExpense("The Daily Grind", "Today, 9:15 AM • Food & Drink", "-$18.40", -18.40, "Secured")
-            saveExpense("Nimbus Subscription", "Today, 8:10 AM • Software", "-$39.99", -39.99, "Secured")
-        }
     }
 
     suspend fun getNotes(): List<NoteRecord> {
         return noteDao.getAll().map { entity ->
             NoteRecord(
                 id = entity.id,
-                title = cryptoManager.decrypt(entity.titleEnc),
-                preview = cryptoManager.decrypt(entity.bodyEnc),
+                title = entity.title,
+                preview = if (entity.isPublic) entity.bodyPlain else cryptoManager.decrypt(entity.bodyEnc),
                 category = cryptoManager.decrypt(entity.categoryEnc),
+                isPublic = entity.isPublic,
                 locked = entity.locked,
                 pinned = entity.pinned,
                 lastEdited = relativeTimeLabel(entity.updatedAt),
@@ -69,25 +64,69 @@ class VaultRepository(
         }
     }
 
+    suspend fun getPublicNotes(): List<NoteRecord> {
+        return getNotes().filter { it.isPublic }
+    }
+
     suspend fun saveNote(
         title: String,
         body: String,
         category: String,
         locked: Boolean,
         pinned: Boolean,
+        isPublic: Boolean = false,
         createdAt: Long = System.currentTimeMillis()
-    ) {
+    ): Long {
         val now = System.currentTimeMillis()
-        noteDao.insert(
+        val bodyEnc = if (isPublic) "" else cryptoManager.encrypt(body)
+        val bodyPlain = if (isPublic) body else ""
+
+        val id = noteDao.insert(
             NoteEntity(
-                titleEnc = cryptoManager.encrypt(title),
-                bodyEnc = cryptoManager.encrypt(body),
+                title = title,
+                bodyEnc = bodyEnc,
+                bodyPlain = bodyPlain,
                 categoryEnc = cryptoManager.encrypt(category),
+                isPublic = isPublic,
                 locked = locked,
                 pinned = pinned,
                 updatedAt = now,
                 createdAt = createdAt
             )
+        )
+
+        return id
+    }
+
+    suspend fun updateNote(
+        id: Long,
+        title: String,
+        body: String,
+        category: String,
+        locked: Boolean,
+        pinned: Boolean,
+        isPublic: Boolean
+    ) {
+        val now = System.currentTimeMillis()
+
+        val (bodyEnc, bodyPlain) = if (isPublic) {
+            // moving to public: plain stored
+            "" to body
+        } else {
+            // moving to private: encrypt the plain provided
+            cryptoManager.encrypt(body) to ""
+        }
+
+        noteDao.updateNote(
+            id = id,
+            title = title,
+            bodyEnc = bodyEnc,
+            bodyPlain = bodyPlain,
+            categoryEnc = cryptoManager.encrypt(category),
+            locked = locked,
+            pinned = pinned,
+            isPublic = isPublic,
+            updatedAt = now
         )
     }
 
@@ -147,6 +186,31 @@ class VaultRepository(
         )
     }
 
+    suspend fun updateExpense(
+        id: Long,
+        title: String,
+        subtitle: String,
+        amountText: String,
+        amountValue: Double,
+        tag: String
+    ) {
+        expenseDao.update(
+            ExpenseEntity(
+                id = id,
+                titleEnc = cryptoManager.encrypt(title),
+                subtitleEnc = cryptoManager.encrypt(subtitle),
+                amountTextEnc = cryptoManager.encrypt(amountText),
+                amountValue = amountValue,
+                tagEnc = cryptoManager.encrypt(tag),
+                createdAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun deleteExpense(id: Long) {
+        expenseDao.deleteById(id)
+    }
+
     suspend fun dashboardSummary(): DashboardSummary {
         val notesCount = noteDao.count()
         val passwordsCount = passwordDao.count()
@@ -154,7 +218,7 @@ class VaultRepository(
         return DashboardSummary(
             notesCount = notesCount,
             passwordsCount = passwordsCount,
-            spendText = String.format(Locale.US, "$%,.0f", kotlin.math.abs(spend))
+            spend = kotlin.math.abs(spend)
         )
     }
 
@@ -177,6 +241,7 @@ class VaultRepository(
         val title: String,
         val preview: String,
         val category: String,
+        val isPublic: Boolean,
         val locked: Boolean,
         val pinned: Boolean,
         val lastEdited: String,
@@ -203,7 +268,7 @@ class VaultRepository(
     data class DashboardSummary(
         val notesCount: Int,
         val passwordsCount: Int,
-        val spendText: String
+        val spend: Double
     )
 
     companion object {
