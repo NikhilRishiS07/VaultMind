@@ -12,6 +12,7 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
@@ -67,10 +68,12 @@ class PasswordsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             allEntries = repository.getPasswords().map {
                 PasswordEntry(
+                    id = it.id,
                     service = it.service,
                     username = it.username,
                     password = it.password,
-                    strength = it.strength
+                    strength = it.strength,
+                    createdAt = it.createdAt
                 )
             }
             applyFilter()
@@ -114,6 +117,74 @@ class PasswordsFragment : Fragment() {
             .show()
     }
 
+        private fun showEditPasswordDialog(entry: PasswordEntry) {
+            val container = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(48, 32, 48, 0)
+            }
+
+            val serviceInput = EditText(requireContext()).apply {
+                hint = "Service"
+                setText(entry.service)
+            }
+            val usernameInput = EditText(requireContext()).apply {
+                hint = "Username"
+                setText(entry.username)
+            }
+            val passwordInput = EditText(requireContext()).apply {
+                hint = "Password"
+                setText(entry.password)
+            }
+
+            container.addView(serviceInput)
+            container.addView(usernameInput)
+            container.addView(passwordInput)
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("Edit Password")
+                .setView(container)
+                .setPositiveButton("Update") { _, _ ->
+                    val service = serviceInput.text?.toString().orEmpty().trim()
+                    val username = usernameInput.text?.toString().orEmpty().trim()
+                    val password = passwordInput.text?.toString().orEmpty().trim()
+
+                    if (service.isBlank() || username.isBlank() || password.isBlank()) {
+                        Toast.makeText(requireContext(), "All fields are required", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        repository.updatePassword(
+                            id = entry.id,
+                            service = service,
+                            username = username,
+                            password = password,
+                            strength = estimateStrength(password),
+                            createdAt = entry.createdAt
+                        )
+                        loadPasswords()
+                        Toast.makeText(requireContext(), "Password updated", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
+        private fun showDeletePasswordDialog(entry: PasswordEntry) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Delete Password?")
+                .setMessage("This action cannot be undone.")
+                .setPositiveButton("Delete") { _, _ ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        repository.deletePassword(entry.id)
+                        loadPasswords()
+                        Toast.makeText(requireContext(), "Password deleted", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+
     private fun estimateStrength(password: String): String {
         val score = listOf(
             password.length >= 12,
@@ -131,10 +202,12 @@ class PasswordsFragment : Fragment() {
     }
 
     private data class PasswordEntry(
+        val id: Long,
         val service: String,
         val username: String,
         val password: String,
-        val strength: String
+        val strength: String,
+        val createdAt: Long
     )
 
     private inner class PasswordsAdapter : RecyclerView.Adapter<PasswordsAdapter.PasswordViewHolder>() {
@@ -189,7 +262,24 @@ class PasswordsFragment : Fragment() {
                     clipboard.setPrimaryClip(ClipData.newPlainText("password", boundPassword))
                     Toast.makeText(requireContext(), "Password copied", Toast.LENGTH_SHORT).show()
                 }
+
+                itemView.setOnLongClickListener {
+                    showPasswordOptionsDialog(item)
+                    true
+                }
             }
         }
+    }
+
+    private fun showPasswordOptionsDialog(entry: PasswordEntry) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(entry.service)
+            .setItems(arrayOf("Edit", "Delete")) { _, which ->
+                when (which) {
+                    0 -> showEditPasswordDialog(entry)
+                    1 -> showDeletePasswordDialog(entry)
+                }
+            }
+            .show()
     }
 }

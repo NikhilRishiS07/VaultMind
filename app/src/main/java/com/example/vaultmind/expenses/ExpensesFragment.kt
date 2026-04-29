@@ -91,6 +91,8 @@ class ExpensesFragment : Fragment() {
                 )
             }
             adapter.submitList(transactions)
+            view?.findViewById<TextView>(R.id.transactionsEmptyState)?.visibility =
+                if (transactions.isEmpty()) View.VISIBLE else View.GONE
             updateBudgetUi()
         }
     }
@@ -169,7 +171,7 @@ class ExpensesFragment : Fragment() {
         fun submitList(newItems: List<Transaction>) {
             items.clear()
             items.addAll(newItems)
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, items.size)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
@@ -178,7 +180,7 @@ class ExpensesFragment : Fragment() {
         }
 
         override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
-            holder.bind(items[position], position)
+            holder.bind(items[position])
         }
 
         override fun getItemCount(): Int = items.size
@@ -189,21 +191,21 @@ class ExpensesFragment : Fragment() {
             private val amountText: TextView = itemView.findViewById(R.id.transactionAmountText)
             private val tagText: TextView = itemView.findViewById(R.id.transactionTagText)
 
-            fun bind(item: Transaction, position: Int) {
+            fun bind(item: Transaction) {
                 titleText.text = item.title
                 subtitleText.text = item.subtitle
                 amountText.text = item.amount
                 tagText.text = item.tag
                 
                 itemView.setOnLongClickListener {
-                    showTransactionOptionsDialog(item, position)
+                    showTransactionOptionsDialog(item)
                     true
                 }
             }
         }
     }
 
-    private fun showTransactionOptionsDialog(transaction: Transaction, position: Int) {
+    private fun showTransactionOptionsDialog(transaction: Transaction) {
         AlertDialog.Builder(requireContext())
             .setTitle(transaction.title)
             .setItems(arrayOf("Edit", "Delete")) { _, which ->

@@ -22,6 +22,8 @@ class VaultRepository(
         .withZone(ZoneId.systemDefault())
 
     suspend fun ensureSeedData() {
+        cleanupLegacyDemoExpenses()
+
         if (noteDao.count() == 0) {
             val now = System.currentTimeMillis()
             saveNote(
@@ -46,6 +48,20 @@ class VaultRepository(
             savePassword("Google Workspace", "alex.design@gmail.com", "Aex$2481#Vault", "Strong")
             savePassword("Netflix Premium", "home_vault_2024", "Ntfx@5520!", "Good")
         }
+    }
+
+    private suspend fun cleanupLegacyDemoExpenses() {
+        val legacyTitles = setOf(
+            "Test",
+            "Google Subscription",
+            "Nimbus Subscription",
+            "The Daily Grind",
+            "Apple Store Online"
+        )
+
+        expenseDao.getAll()
+            .filter { cryptoManager.decrypt(it.titleEnc) in legacyTitles }
+            .forEach { expenseDao.deleteById(it.id) }
     }
 
     suspend fun getNotes(): List<NoteRecord> {
@@ -137,7 +153,8 @@ class VaultRepository(
                 service = cryptoManager.decrypt(entity.serviceEnc),
                 username = cryptoManager.decrypt(entity.usernameEnc),
                 password = cryptoManager.decrypt(entity.passwordEnc),
-                strength = cryptoManager.decrypt(entity.strengthEnc)
+                strength = cryptoManager.decrypt(entity.strengthEnc),
+                createdAt = entity.createdAt
             )
         }
     }
@@ -152,6 +169,30 @@ class VaultRepository(
                 createdAt = System.currentTimeMillis()
             )
         )
+    }
+
+    suspend fun updatePassword(
+        id: Long,
+        service: String,
+        username: String,
+        password: String,
+        strength: String,
+        createdAt: Long
+    ) {
+        passwordDao.update(
+            PasswordEntryEntity(
+                id = id,
+                serviceEnc = cryptoManager.encrypt(service),
+                usernameEnc = cryptoManager.encrypt(username),
+                passwordEnc = cryptoManager.encrypt(password),
+                strengthEnc = cryptoManager.encrypt(strength),
+                createdAt = createdAt
+            )
+        )
+    }
+
+    suspend fun deletePassword(id: Long) {
+        passwordDao.deleteById(id)
     }
 
     suspend fun getExpenses(): List<ExpenseRecord> {
@@ -253,7 +294,8 @@ class VaultRepository(
         val service: String,
         val username: String,
         val password: String,
-        val strength: String
+        val strength: String,
+        val createdAt: Long
     )
 
     data class ExpenseRecord(

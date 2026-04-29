@@ -5,10 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,6 +13,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.vaultmind.AppGraph
 import com.example.vaultmind.R
 import com.example.vaultmind.data.auth.AppLockManager
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -23,6 +22,8 @@ class DashboardFragment : Fragment() {
     private val repository by lazy { AppGraph.repository(requireContext()) }
     private val lockManager by lazy { AppLockManager(requireContext()) }
     private val activities = mutableListOf<RecentActivity>()
+    private val activityAdapter by lazy { ActivityAdapter() }
+    private var dashboardRenderedOnce = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -32,71 +33,89 @@ class DashboardFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        dashboardRenderedOnce = false
         
         val username = lockManager.tempUsername()
-        view.findViewById<TextView>(R.id.greetingText).text = "Greetings $username, you are currently logged in."
-        
-        loadSummary(view)
-        loadRecentActivity(view)
+        view.findViewById<TextView>(R.id.greetingText).text = "Greetings $username, your vault is ready."
+
+        view.findViewById<View>(R.id.dashboardContent).alpha = 0f
+
+        view.findViewById<RecyclerView>(R.id.recentActivityRecycler).apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = activityAdapter
+        }
+
+        refreshDashboard(view)
     }
 
     override fun onResume() {
         super.onResume()
         view?.let { 
-            loadSummary(it)
-            loadRecentActivity(it)
+            refreshDashboard(it)
         }
     }
 
-    private fun loadSummary(view: View) {
+    private fun refreshDashboard(view: View) {
         viewLifecycleOwner.lifecycleScope.launch {
             val summary = repository.dashboardSummary()
+            val recentItems = loadRecentActivityItems()
+
             view.findViewById<TextView>(R.id.notesCountText).text = summary.notesCount.toString()
             view.findViewById<TextView>(R.id.passwordsCountText).text = summary.passwordsCount.toString()
-            setupBudgetEditing(view)
-        }
-    }
 
-    private fun loadRecentActivity(view: View) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            // Load notes and expenses
-            val notes = repository.getNotes().take(3)
-            val expenses = repository.getExpenses().take(2)
-            
-            // Create activity items from notes and expenses
-            val noteActivities = notes.map { note ->
-                RecentActivity("N", "Note created", note.title, "")
-            }
-            
-            val expenseActivities = expenses.map { expense ->
-                RecentActivity("E", "Expense added", expense.title, "")
-            }
-            
-            // Combine all activities
-            activities.clear()
-            activities.addAll(noteActivities + expenseActivities)
-            
-            val recycler = view.findViewById<RecyclerView>(R.id.recentActivityRecycler)
-            recycler.apply {
-                layoutManager = LinearLayoutManager(requireContext())
-                adapter = ActivityAdapter(activities)
-            }
-        }
-    }
-
-    private fun setupBudgetEditing(view: View) {
-        viewLifecycleOwner.lifecycleScope.launch {
+            val budgetSpent = kotlin.math.abs(summary.spend)
             val prefs = requireContext().getSharedPreferences("dashboard_prefs", Context.MODE_PRIVATE)
-            val currentBudget = prefs.getLong("monthly_budget", 5000)
-            val spend = repository.dashboardSummary().spend
-            
-            view.findViewById<TextView>(R.id.budgetSpentLabel)?.text = String.format(Locale.US, "₹%,.0f", kotlin.math.abs(spend))
-            view.findViewById<TextView>(R.id.budgetLimitLabel)?.text = String.format(Locale.US, "₹%,d limit", currentBudget)
-            view.findViewById<TextView>(R.id.budgetRemainingLabel)?.text = String.format(Locale.US, "₹%,d remaining", (currentBudget - kotlin.math.abs(spend).toLong()).coerceAtLeast(0L))
-            
-            val progress = ((kotlin.math.abs(spend) / currentBudget.toDouble()) * 100).toInt().coerceIn(0, 100)
+            val currentBudget = prefs.getLong("monthly_budget", 5000).toDouble()
+            val remaining = (currentBudget - budgetSpent).coerceAtLeast(0.0)
+            val progress = ((budgetSpent / currentBudget) * 100).toInt().coerceIn(0, 100)
+
+            view.findViewById<TextView>(R.id.budgetSpentLabel)?.text = String.format(Locale.US, "₹%,.0f", budgetSpent)
+            view.findViewById<TextView>(R.id.budgetLimitLabel)?.text = String.format(Locale.US, "₹%,d limit", currentBudget.toLong())
+            view.findViewById<TextView>(R.id.budgetRemainingLabel)?.text = String.format(Locale.US, "₹%,.0f remaining", remaining)
             view.findViewById<android.widget.ProgressBar>(R.id.budgetCircleProgress)?.progress = progress
+
+            activities.clear()
+            activities.addAll(recentItems)
+            activityAdapter.submitList(activities)
+
+            val dashboardContent = view.findViewById<View>(R.id.dashboardContent)
+            if (!dashboardRenderedOnce) {
+                dashboardRenderedOnce = true
+                dashboardContent.animate()
+                    .alpha(1f)
+                    .setDuration(240)
+                    .start()
+            }
         }
+    }
+
+    private suspend fun loadRecentActivityItems(): List<RecentActivity> = coroutineScope {
+        val notesDeferred = async { repository.getNotes().take(3) }
+        val expensesDeferred = async { repository.getExpenses().take(3) }
+
+        val notes = notesDeferred.await()
+        val expenses = expensesDeferred.await()
+
+        val noteActivities = notes.map { note ->
+            RecentActivity(
+                iconLetter = "N",
+                title = note.title,
+                subtitle = note.category.ifBlank { note.lastEdited },
+                status = note.lastEdited
+            )
+        }
+
+        val expenseActivities = expenses.map { expense ->
+            RecentActivity(
+                iconLetter = "E",
+                title = expense.title,
+                subtitle = expense.subtitle,
+                status = expense.tag.ifBlank { "Spent" }
+            )
+        }
+
+        (noteActivities + expenseActivities).take(6)
     }
 
     private data class RecentActivity(
@@ -106,9 +125,14 @@ class DashboardFragment : Fragment() {
         val status: String
     )
 
-    private inner class ActivityAdapter(
-        private val items: List<RecentActivity>
-    ) : RecyclerView.Adapter<ActivityAdapter.ActivityViewHolder>() {
+    private inner class ActivityAdapter : RecyclerView.Adapter<ActivityAdapter.ActivityViewHolder>() {
+        private val items = mutableListOf<RecentActivity>()
+
+        fun submitList(newItems: List<RecentActivity>) {
+            items.clear()
+            items.addAll(newItems)
+            notifyDataSetChanged()
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ActivityViewHolder {
             val itemView = layoutInflater.inflate(R.layout.item_activity_log, parent, false)

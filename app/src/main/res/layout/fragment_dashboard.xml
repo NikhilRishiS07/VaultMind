@@ -10,6 +10,7 @@
     tools:context=".dashboard.DashboardFragment">
 
     <LinearLayout
+        android:id="@+id/dashboardContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -44,8 +45,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             app:cardBackgroundColor="@color/vault_surface"
-            app:cardCornerRadius="24dp"
-            app:strokeColor="#26FFFFFF"
+            app:cardCornerRadius="28dp"
+            app:strokeColor="#2EFFFFFF"
             app:strokeWidth="1dp">
 
             <LinearLayout
@@ -58,10 +59,18 @@
                     android:id="@+id/greetingText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Greetings vaultpilot, you are currently logged in."
+                    android:text="Greetings vaultpilot, your vault is ready."
                     android:textColor="@color/vault_text_primary"
-                    android:textSize="16sp"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Last sync a moment ago"
+                    android:textColor="@color/vault_text_secondary"
+                    android:textSize="13sp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -78,7 +87,7 @@
                 android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 app:cardBackgroundColor="@color/vault_surface"
-                app:cardCornerRadius="20dp"
+                app:cardCornerRadius="22dp"
                 app:strokeColor="#1FFFFFFF"
                 app:strokeWidth="1dp">
 
@@ -102,9 +111,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="24"
+                        android:text="—"
                         android:textColor="@color/vault_text_primary"
-                        android:textSize="30sp"
+                        android:textSize="32sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -114,7 +123,7 @@
                 android:layout_height="140dp"
                 android:layout_columnWeight="1"
                 app:cardBackgroundColor="@color/vault_surface"
-                app:cardCornerRadius="20dp"
+                app:cardCornerRadius="22dp"
                 app:strokeColor="#1FFFFFFF"
                 app:strokeWidth="1dp">
 
@@ -138,20 +147,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="12"
+                        android:text="—"
                         android:textColor="@color/vault_text_primary"
-                        android:textSize="30sp"
+                        android:textSize="32sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="280dp"
+                android:layout_height="290dp"
                 android:layout_columnSpan="2"
                 android:layout_marginTop="8dp"
                 app:cardBackgroundColor="@color/vault_surface"
-                app:cardCornerRadius="20dp"
+                app:cardCornerRadius="26dp"
                 app:strokeColor="#1FFFFFFF"
                 app:strokeWidth="1dp">
 
@@ -195,7 +204,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="₹2,450"
+                            android:text="—"
                             android:textColor="@color/vault_text_primary"
                             android:textSize="28sp"
                             android:textStyle="bold"
@@ -206,7 +215,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="₹5,000 limit"
+                            android:text="— limit"
                             android:textColor="@color/vault_primary"
                             android:textSize="14sp"
                             android:gravity="center" />
@@ -216,7 +225,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            android:text="₹2,550 remaining"
+                            android:text="— remaining"
                             android:textColor="@color/vault_text_secondary"
                             android:textSize="12sp"
                             android:gravity="center" />
@@ -230,7 +239,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             app:cardBackgroundColor="@color/vault_surface"
-            app:cardCornerRadius="24dp"
+            app:cardCornerRadius="28dp"
             app:strokeColor="#26FFFFFF"
             app:strokeWidth="1dp">
 
@@ -240,13 +249,29 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="History"
-                    android:textColor="@color/vault_text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Recent Activity"
+                        android:textColor="@color/vault_text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Live"
+                        android:textColor="@color/vault_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/recentActivityRecycler"
@@ -257,5 +282,16 @@
                     tools:listitem="@layout/item_activity_log" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="End-to-end encrypted tunnel active"
+            android:textColor="@color/vault_text_secondary"
+            android:textSize="12sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.18" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
