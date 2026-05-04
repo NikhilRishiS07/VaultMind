@@ -42,12 +42,19 @@ class GroqSuggestionClient(
         val recentExcerpt = extractRecentExcerpt(beforeContext.ifBlank { body })
         val continuationAnchor = extractContinuationAnchor(beforeContext, recentExcerpt)
 
+        val styleHint = when {
+            continuationAnchor.endsWith("and") -> "continue with a natural next detail"
+            continuationAnchor.endsWith("to") -> "continue with a verb phrase"
+            continuationAnchor.endsWith("i") -> "continue describing an action"
+            else -> "continue the thought naturally"
+        }
+
         val request = GroqChatCompletionRequest(
             model = model,
             messages = listOf(
                 GroqMessage(
                     role = "system",
-                    content = "You are a completion engine. Given an incomplete phrase from a personal note, you generate 3 grammatically correct continuations that make the combined text flow seamlessly. Never generate full new sentences; only continue the anchor."
+                    content = "You are a precise text continuation engine. You ONLY extend the given phrase naturally. Never start a new sentence."
                 ),
                 GroqMessage(
                     role = "user",
@@ -58,13 +65,14 @@ class GroqSuggestionClient(
                         cursorAfterText = afterContext,
                         recentBodyExcerpt = recentExcerpt,
                         continuationAnchor = continuationAnchor,
-                        recentSuggestions = recentSuggestions
+                        recentSuggestions = recentSuggestions,
+                        styleHint = styleHint
                     )
                 )
             ),
-            temperature = 0.1,
-            presencePenalty = 0.95,
-            frequencyPenalty = 0.95,
+            temperature = 0.2,
+            presencePenalty = 0.3,
+            frequencyPenalty = 0.3,
             maxTokens = 48
         )
 
@@ -113,52 +121,36 @@ class GroqSuggestionClient(
         cursorAfterText: String,
         recentBodyExcerpt: String,
         continuationAnchor: String,
-        recentSuggestions: List<String>
+        recentSuggestions: List<String>,
+        styleHint: String
     ): String {
         val avoidList = recentSuggestions.take(8).joinToString("\n") { "- $it" }
-        return """
-            Complete the anchor text with 3 grammatically correct continuations.
-            Each suggestion MUST be a direct completion of the last phrase in the anchor—not a new sentence.
-            The suggestion should make the anchor + suggestion read as one smooth, grammatical phrase or clause.
-            
-            CRITICAL: If the anchor ends with "i started to", suggest verb phrases that follow it: "feel more awake", "scroll through my phone", "grab more coffee".
-            If the anchor ends with "and i", suggest what happened next: "felt tired", "went to the kitchen", "checked my phone".
-            If the anchor is a complete sentence, suggest the next clause or action: "and then i", "so i", "but it was".
-            
-            Do NOT generate:
-            - Full new sentences starting with "I" or "It" or "There"
-            - Independent clauses that don't connect to the anchor
-            - Generic advice or summaries
-            - Unrelated memories or ideas
-            
-            Do ONLY generate:
-            - Verb phrases, noun phrases, or clauses that grammatically continue the anchor
-            - Words that make the anchor + suggestion one coherent sentence
-            - Details grounded in the note's context
-            
-            Keep each suggestion 2-8 words.
-            Avoid repeating suggestions from the recent outputs list.
-            Return only the suggestions as plain text, one per line.
 
-            ANCHOR TEXT (continue ONLY this phrase):
+        return """
+            Complete the anchor text with 3 natural continuations.
+
+            STRICT RULES:
+            - ONLY continue the given phrase
+            - DO NOT start a new sentence
+            - DO NOT restart with pronouns (I, It, There, etc.)
+            - Keep it realistic and consistent with the note
+            - Avoid dramatic or sudden events unless implied
+            - Each suggestion must be 2-8 words
+            - Never repeat wording from instructions
+
+            STYLE: $styleHint
+
+            ANCHOR TEXT:
             ${if (continuationAnchor.isBlank()) "(none)" else continuationAnchor}
 
-            FULL NOTE (for context only):
+            NOTE CONTEXT:
             ${if (noteBody.isBlank()) "(none)" else noteBody}
 
-            RECENTLY USED OUTPUTS TO AVOID:
+            AVOID THESE:
             ${if (avoidList.isBlank()) "(none)" else avoidList}
 
-            EXAMPLE OF CORRECT vs WRONG:
-            Anchor: "and i started to"
-            CORRECT: "feel tired", "check my phone", "go make coffee"
-            WRONG: "i was feeling tired", "it was weird", "i decided to"
-            
-            Anchor: "so i"
-            CORRECT: "grabbed water", "sat down", "turned on the tv"
-            WRONG: "i sat down", "there was", "i went to"
-
-            Never output phrases that restart the sentence with a pronoun.
+            OUTPUT:
+            Return only 3 suggestions, one per line.
         """.trimIndent()
     }
 
@@ -175,7 +167,7 @@ class GroqSuggestionClient(
 
         if (words.isEmpty()) return ""
 
-        val tailWordCount = minOf(7, words.size)
+        val tailWordCount = minOf(5, words.size) // tightened
         return words.takeLast(tailWordCount).joinToString(" ")
     }
 
@@ -199,12 +191,15 @@ class GroqSuggestionClient(
         return clauses.lastOrNull().orEmpty().takeLast(220)
     }
 
+    private val badVerbs = setOf(
+        "slipped", "fell", "crashed", "died", "broke", "hurt", "lost"
+    )
+
     private fun parseSuggestions(content: String, recentSuggestions: List<String>): List<String> {
         val cleanedLines = content
             .lines()
-            .map { line -> line.trim().removePrefix("-").removePrefix("*").trim() }
-            .map { line -> line.replace(Regex("^\\d+[.)]\\s*"), "") }
-            .map { line -> line.trim() }
+            .map { it.trim().removePrefix("-").removePrefix("*").trim() }
+            .map { it.replace(Regex("^\\d+[.)]\\s*"), "") }
             .filter { it.isNotBlank() }
 
         val items = if (cleanedLines.isNotEmpty()) {
@@ -217,23 +212,25 @@ class GroqSuggestionClient(
 
         val normalized = items
             .map { it.trimEnd('.', '!', '?').trim() }
-            .filter { it.isNotBlank() }
+            .filter { it.split(" ").size >= 2 } // avoid junk
             .filter { isValidContinuation(it) }
 
         val unique = mutableListOf<String>()
         for (candidate in normalized) {
-            // skip if similar to recent suggestions
-            val isRecentDuplicate = recentSuggestions.any { recent ->
-                similarity(recent, candidate) >= 0.75
+
+            val isRecentDuplicate = recentSuggestions.any {
+                similarity(it, candidate) >= 0.75
             }
             if (isRecentDuplicate) continue
 
-            val isNearDuplicate = unique.any { existing ->
-                similarity(existing, candidate) >= 0.75
+            val isNearDuplicate = unique.any {
+                similarity(it, candidate) >= 0.75
             }
+
             if (!isNearDuplicate) {
                 unique.add(candidate)
             }
+
             if (unique.size == 3) break
         }
 
@@ -242,25 +239,18 @@ class GroqSuggestionClient(
 
     private fun isValidContinuation(text: String): Boolean {
         val lower = text.lowercase()
-        val words = text.split(Regex("\\s+"))
+        val words = lower.split(Regex("\\s+"))
+
         if (words.isEmpty()) return false
-        
+
         val badStarts = setOf(
-            "i ", "it ", "there ", "this ", "that ", "we ", "they ", "you ", "he ", "she ",
-            "the ", "a ", "an "
+            "i", "it", "there", "this", "that", "we", "they", "you", "he", "she"
         )
-        
-        for (bad in badStarts) {
-            if (lower.startsWith(bad)) {
-                val afterBad = lower.drop(bad.length - 1)
-                if (afterBad.startsWith(" was") || afterBad.startsWith(" were") ||
-                    afterBad.startsWith(" am") || afterBad.startsWith(" is") ||
-                    afterBad.startsWith(" are")) {
-                    return false
-                }
-            }
-        }
-        
+
+        if (badStarts.contains(words.first())) return false
+
+        if (words.any { it in badVerbs }) return false
+
         return text.length in 2..60
     }
 
