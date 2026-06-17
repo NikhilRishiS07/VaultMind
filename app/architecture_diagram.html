@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VaultMind - Architecture Diagram (Simple)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --ink: #111111;
+      --muted: #555555;
+      --line: #222222;
+      --card: #fafafa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "Patrick Hand", cursive;
+      background: var(--bg);
+      color: var(--ink);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0 0 6px 0;
+      letter-spacing: 0.2px;
+    }
+
+    p {
+      margin: 0 0 18px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .diagram {
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 16px 20px 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 2px 2px 0 var(--line);
+      transform: rotate(-0.2deg);
+    }
+
+    .card h2 {
+      font-size: 16px;
+      margin: 0 0 6px 0;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    ul {
+      list-style: none;
+      margin: 6px 0 0 0;
+      padding: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    li::before {
+      content: "- ";
+      color: var(--ink);
+    }
+
+    .arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .arrow-line {
+      width: 2px;
+      height: 18px;
+      background: var(--line);
+    }
+
+    .arrow-tip {
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid var(--line);
+    }
+
+    .note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>VaultMind - Architecture Diagram</h1>
+    <p>Linear, top-to-bottom flow. Clean, minimal, hand-drawn style.</p>
+
+    <div class="diagram" role="img" aria-label="VaultMind architecture diagram">
+      <div class="card">
+        <h2>VaultMind App (UI)</h2>
+        <ul>
+          <li>Dashboard, Notes, Passwords, Expenses</li>
+          <li>Settings, Note Editor</li>
+        </ul>
+      </div>
+
+      <div class="arrow">
+        <span class="arrow-line"></span>
+        <span class="arrow-tip"></span>
+      </div>
+
+      <div class="card">
+        <h2>AppGraph / VaultRepository</h2>
+        <p>Coordinates data and service access</p>
+      </div>
+
+      <div class="arrow">
+        <span class="arrow-line"></span>
+        <span class="arrow-tip"></span>
+      </div>
+
+      <div class="card">
+        <h2>Local Data Layer</h2>
+        <ul>
+          <li>Room Database (Notes, Passwords, Expenses)</li>
+          <li>CryptoManager (encrypt / decrypt)</li>
+          <li>Backup and Export (encrypted)</li>
+        </ul>
+      </div>
+
+      <div class="arrow">
+        <span class="arrow-line"></span>
+        <span class="arrow-tip"></span>
+      </div>
+
+      <div class="card">
+        <h2>Security Controls</h2>
+        <ul>
+          <li>AppLockManager (PIN, Biometric, Auto-lock)</li>
+        </ul>
+      </div>
+
+      <div class="arrow">
+        <span class="arrow-line"></span>
+        <span class="arrow-tip"></span>
+      </div>
+
+      <div class="card">
+        <h2>AI Note Assistance (Optional)</h2>
+        <ul>
+          <li>GroqSuggestionClient</li>
+          <li>Model: llama-3.1-8b-instant</li>
+        </ul>
+      </div>
+
+      <div class="arrow">
+        <span class="arrow-line"></span>
+        <span class="arrow-tip"></span>
+      </div>
+
+      <div class="card">
+        <h2>External Groq API</h2>
+        <p>Chat completion for note suggestions</p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
